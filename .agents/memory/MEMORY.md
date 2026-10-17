@@ -1,0 +1,2 @@
+- [Streamlit artifact deployment](streamlit-artifact-deployment.md) — use the run service for Autoscale and artifact-relative paths for root-level app commands.
+- [Streamlit form testing](streamlit-form-testing.md) — AppTest must submit buffered `st.form` values before submitted-state output can be checked.

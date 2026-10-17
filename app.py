@@ -214,8 +214,30 @@ with st.form("risk_inputs"):
         selected_city = st.text_input("City", value="Pune")
     submitted = st.form_submit_button("Check risk", type="primary", use_container_width=True)
 
+city = selected_city.strip()
+
+# 🥚 Easter egg: type "impact" in the City box and press Enter
+if city.strip().lower() == "impact":
+    if "egg_seen" not in st.session_state:
+        st.balloons()
+        st.session_state["egg_seen"] = True
+    st.header("🌱 Secret unlocked: Impact Counter")
+    st.caption("What if farmers actually used this?")
+    farmers = st.slider("Farmers using the tool", 100, 10000, 1000, step=100)
+    tonnes = st.slider("Avg produce stored per farmer (tonnes)", 1.0, 10.0, 2.0, step=0.5)
+    loss = st.slider("Typical post-harvest loss (%)", 5, 40, 20)
+    cut = st.slider("Loss prevented by early action (%)", 10, 60, 30)
+    price = st.slider("Avg crop price (₹/kg)", 5, 60, 20)
+
+    saved_t = farmers * tonnes * (loss / 100) * (cut / 100)
+    value = saved_t * 1000 * price
+    c1, c2 = st.columns(2)
+    c1.metric("Produce saved", f"{saved_t:,.0f} tonnes")
+    c2.metric("Value protected", f"₹{value / 100000:,.1f} lakh")
+    st.caption("Illustrative estimates based on adjustable assumptions.")
+    st.stop()
+
 if submitted:
-    city = selected_city.strip()
     st.session_state.pop("risk_report", None)
     st.session_state.pop("risk_error", None)
     st.session_state.pop("risk_warning", None)
