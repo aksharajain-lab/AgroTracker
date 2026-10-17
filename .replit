@@ -26,11 +26,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "./.pythonlibs/bin/streamlit run app.py --server.port 5000 --server.address 0.0.0.0 --server.headless true"
+args = "./.pythonlibs/bin/streamlit run app.py --server.address 0.0.0.0 --server.port 5000 --server.headless true"
 waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
 
 [agent]
 stack = "PNPM_WORKSPACE"
