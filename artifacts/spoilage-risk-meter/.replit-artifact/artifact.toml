@@ -1,0 +1,36 @@
+kind = "web"
+previewPath = "/"
+title = "Spoilage Risk Meter"
+description = "A deployable Streamlit web app for Indian farmers and local traders to check five-day post-harvest spoilage risk by crop, storage type, and city. The single-file app.py remains the application UI and runs on port 5000."
+version = "1.0.0"
+id = "artifacts/spoilage-risk-meter"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 5000
+
+[services.development]
+run = "../../.pythonlibs/bin/streamlit run ../../app.py --server.address 0.0.0.0 --server.port 5000 --server.headless true --server.enableCORS false"
+
+[services.production]
+
+[services.production.build]
+args = ["uv", "sync", "--project", "."]
+
+[services.production.build.env]
+UV_PROJECT_ENVIRONMENT = ".venv"
+
+[services.production.run]
+args = ["./.venv/bin/streamlit", "run", "app.py", "--server.address", "0.0.0.0", "--server.port", "5000", "--server.headless", "true", "--server.enableCORS", "false"]
+
+[services.production.run.env]
+PORT = "5000"
+
+[services.production.health.startup]
+path = "/_stcore/health"
+
+[services.env]
+PORT = "5000"
+BASE_PATH = "/"
