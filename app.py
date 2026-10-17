@@ -9,11 +9,15 @@ import streamlit as st
 st.set_page_config(page_title="Spoilage Risk Meter", page_icon="🌾")
 
 CROP_THRESHOLDS = {
-    "Tomato": {"max_temp": 25, "max_humidity": 85},
-    "Potato": {"max_temp": 20, "max_humidity": 90},
-    "Onion": {"max_temp": 30, "max_humidity": 70},
-    "Banana": {"max_temp": 28, "max_humidity": 90},
-    "Wheat": {"max_temp": 30, "max_humidity": 65},
+    "Tomato": {"max_temp": 25, "max_humidity": 85, "shelf": 10},
+    "Potato": {"max_temp": 20, "max_humidity": 90, "shelf": 60},
+    "Onion": {"max_temp": 30, "max_humidity": 70, "shelf": 90},
+    "Banana": {"max_temp": 28, "max_humidity": 90, "shelf": 7},
+    "Wheat": {"max_temp": 30, "max_humidity": 65, "shelf": 180},
+    "Mango": {"max_temp": 28, "max_humidity": 85, "shelf": 8},
+    "Cabbage": {"max_temp": 20, "max_humidity": 95, "shelf": 21},
+    "Green chilli": {"max_temp": 28, "max_humidity": 80, "shelf": 12},
+    "Rice": {"max_temp": 30, "max_humidity": 70, "shelf": 180},
 }
 
 STORAGE_MODIFIERS = {
@@ -82,7 +86,19 @@ def sample_forecast():
     )
 
 
-def calculate_risk(forecast, crop, storage):
+def score_day(effective_temp, effective_humidity, crop_limits, storage_settings, age_days):
+    temp_score = min(max(effective_temp - crop_limits["max_temp"], 0) * 6, 60)
+    humidity_score = min(
+        max(effective_humidity - crop_limits["max_humidity"], 0) * 3,
+        40,
+    )
+    base = (temp_score + humidity_score) * storage_settings["factor"]
+    age_mult = 1 + min(age_days / crop_limits["shelf"], 1) * 0.5
+    overdue = 15 if age_days > crop_limits["shelf"] else 0
+    return round(min(base * age_mult + overdue, 100))
+
+
+def calculate_risk(forecast, crop, storage, days_old):
     crop_limits = CROP_THRESHOLDS[crop]
     storage_settings = STORAGE_MODIFIERS[storage]
     result = forecast.copy()
@@ -93,21 +109,16 @@ def calculate_risk(forecast, crop, storage):
         result["Mean relative humidity (%)"] + storage_settings["humidity_offset"]
     )
 
-    temp_score = (
-        (result["Effective temperature (°C)"] - crop_limits["max_temp"])
-        .clip(lower=0)
-        .mul(6)
-        .clip(upper=60)
-    )
-    humidity_score = (
-        (result["Effective humidity (%)"] - crop_limits["max_humidity"])
-        .clip(lower=0)
-        .mul(3)
-        .clip(upper=40)
-    )
-    result["Risk score"] = (
-        (temp_score + humidity_score).mul(storage_settings["factor"]).round().clip(upper=100)
-    ).astype(int)
+    result["Risk score"] = [
+        score_day(
+            row["Effective temperature (°C)"],
+            row["Effective humidity (%)"],
+            crop_limits,
+            storage_settings,
+            days_old + forecast_day,
+        )
+        for forecast_day, (_, row) in enumerate(result.iterrows())
+    ]
     return result
 
 
@@ -212,6 +223,11 @@ with st.form("risk_inputs"):
         selected_storage = st.selectbox("Storage type", list(STORAGE_MODIFIERS))
     with city_column:
         selected_city = st.text_input("City", value="Pune")
+        selected_harvest_date = st.date_input(
+            "🌾 Harvest date",
+            value=date.today() - timedelta(days=2),
+            max_value=date.today(),
+        )
     submitted = st.form_submit_button("Check risk", type="primary", use_container_width=True)
 
 city = selected_city.strip()
@@ -263,6 +279,7 @@ if submitted:
                 "city": city,
                 "place_name": place_name,
                 "sample": False,
+                "harvest_date": selected_harvest_date,
             }
         except CityNotFoundError:
             st.session_state["risk_error"] = (
@@ -280,6 +297,7 @@ if submitted:
                 "city": city,
                 "place_name": city,
                 "sample": True,
+                "harvest_date": selected_harvest_date,
             }
 
 if st.session_state.get("risk_error"):
@@ -292,7 +310,10 @@ saved_report = st.session_state.get("risk_report")
 if saved_report:
     crop = saved_report["crop"]
     storage = saved_report["storage"]
-    report = calculate_risk(saved_report["forecast"], crop, storage)
+    days_old = (date.today() - saved_report["harvest_date"]).days
+    shelf_life = CROP_THRESHOLDS[crop]["shelf"]
+    shelf_life_left = max(shelf_life - days_old, 0)
+    report = calculate_risk(saved_report["forecast"], crop, storage, days_old)
     peak_row = report.loc[report["Risk score"].idxmax()]
     peak_score = int(peak_row["Risk score"])
     level, risk_icon = risk_details(peak_score)
@@ -304,6 +325,13 @@ if saved_report:
     st.caption(
         f"{saved_report['place_name']} · {crop} · {storage} · {source_label}"
     )
+    st.metric(
+        "Crop age",
+        f"{days_old} days old",
+        delta=f"{shelf_life_left} days of shelf life left",
+    )
+    if days_old > shelf_life:
+        st.warning("This crop is past its typical shelf life. Sell or process it ASAP.")
     st.subheader(f"{risk_icon} {level} risk — {peak_score}/100")
     st.write(f"Peak risk is forecast for **{worst_day}**.")
 
