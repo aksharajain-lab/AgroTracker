@@ -7,6 +7,13 @@ import streamlit as st
 
 
 st.set_page_config(page_title="Spoilage Risk Meter", page_icon="🌾")
+st.markdown("""
+<style>
+#MainMenu, footer, header {visibility: hidden;}
+[data-testid="stToolbar"], [data-testid="stAppDeployButton"],
+[data-testid="stDecoration"], [data-testid="stStatusWidget"] {display: none !important;}
+</style>
+""", unsafe_allow_html=True)
 
 CROP_THRESHOLDS = {
     "Tomato": {"max_temp": 25, "max_humidity": 85, "shelf": 10},
